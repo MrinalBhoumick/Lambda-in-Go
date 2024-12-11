@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS SAM template for Lambda function with API Gateway and CORS enabled
+
+Resources:
+  GoLambdaAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: Go-Lambda-API
+      StageName: Prod
+
+  GoLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GO-Lambda-Test
+      Handler: bootstrap
+      Runtime: provided.al2
+      CodeUri: .
+      MemorySize: 128
+      Timeout: 30
+      Events:
+        CallbackCMI:
+          Type: Api
+          Properties:
+            Path: /my-function-path
+            Method: post
+            RestApiId: !Ref GoLambdaAPI
+
+  ApiGatewayOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !GetAtt GoLambdaAPI.RootResourceId
+      RestApiId: !Ref GoLambdaAPI
+      Integration:
+        IntegrationHttpMethod: MOCK
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+
+Outputs:
+  LambdaFunctionArn:
+    Value: !GetAtt GoLambdaFunction.Arn
+    Description: "Lambda Function ARN"
+
+  ApiGatewayInvokeURL:
+    Value: !Sub "https://${GoLambdaAPI}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+    Description: "Invoke URL for the API Gateway"
